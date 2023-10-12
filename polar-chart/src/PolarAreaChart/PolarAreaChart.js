@@ -11,6 +11,8 @@ import EventBus from './EventBus';
 const Tau = Math.PI * 2;
 const StartAngle = Tau / 4;
 const StraightDownAngle = (3 * Math.PI) / 2;
+const SpikeLength = 40;
+
 
 const ChartRadiusPercentOfSize = 0.72;
 const AreaRadiusBuffer = 30;
@@ -146,9 +148,69 @@ class PolarAreaChart extends EventBus {
 
         this.drawGridLines(cx, cy);
         this.drawAreas(cx, cy);
+        this.drawOuterGradient(cx, cy)
         this.drawSpokes(cx, cy);
         this.drawLabels(cx, cy);
     };
+
+    drawOuterGradient = (cx, cy) => {
+        if (!Number.isInteger(this.highlightedIndex)) {
+            return
+        }
+
+        const index = this.highlightedIndex;
+        const spoke = this.calculateSpoke(cx, cy, index, this.chartRadius);
+        const nextSpoke = this.calculateSpoke(cx, cy, (index + 1) % this.itemValues.length, this.chartRadius);
+        const outerSpoke = this.calculateSpoke(cx, cy, index, this.chartRadius + SpikeLength);
+        const outerNextSpoke = this.calculateSpoke(cx, cy, (index + 1) % this.itemValues.length, this.chartRadius + SpikeLength);
+
+        let middle = {
+            inner: {
+                x: (spoke.x + nextSpoke.x) / 2,
+                y: (spoke.y + nextSpoke.y) / 2
+            },
+            outer: {
+                x: (outerSpoke.x + outerNextSpoke.x) / 2,
+                y: (outerSpoke.y + outerNextSpoke.y) / 2
+            }
+        }
+        
+        const lgArea = this.ctx.createLinearGradient(middle.inner.x, middle.inner.y,middle.outer.x,middle.outer.y);
+        lgArea.addColorStop(0, 'rgba(118, 219, 255, .4)');
+        lgArea.addColorStop(.9, 'rgba(118, 219, 255, 0)');
+
+        const lgLine1 = this.ctx.createLinearGradient(spoke.x, spoke.y,outerSpoke.x,outerSpoke.y);
+        lgLine1.addColorStop(0, 'rgba(118, 219, 255, 1)');
+        lgLine1.addColorStop(1, 'rgba(118, 219, 255, 0.1)');
+
+        const lgLine2 = this.ctx.createLinearGradient(nextSpoke.x, nextSpoke.y,outerNextSpoke.x,outerNextSpoke.y);
+        lgLine2.addColorStop(0, 'rgba(118, 219, 255, 1)');
+        lgLine2.addColorStop(1, 'rgba(118, 219, 255, 0.1)');
+
+        this.ctx.lineWidth = 5
+
+        this.ctx.strokeStyle = lgLine1;
+        this.ctx.beginPath()
+        this.ctx.moveTo(spoke.x,spoke.y)
+        this.ctx.lineTo(outerSpoke.x,outerSpoke.y);
+        this.ctx.stroke()
+
+        this.ctx.strokeStyle = lgLine2;
+        this.ctx.beginPath()
+        this.ctx.moveTo(nextSpoke.x,nextSpoke.y)
+        this.ctx.lineTo(outerNextSpoke.x,outerNextSpoke.y);
+        this.ctx.stroke()
+
+        this.ctx.fillStyle = lgArea;
+        this.ctx.beginPath()
+        this.ctx.moveTo(spoke.x, spoke.y)
+        this.ctx.lineTo(nextSpoke.x, nextSpoke.y)
+        this.ctx.lineTo(outerNextSpoke.x, outerNextSpoke.y)
+        this.ctx.lineTo(outerSpoke.x, outerSpoke.y)
+        this.ctx.lineTo(spoke.x, spoke.y)
+        this.ctx.closePath()
+        this.ctx.fill();
+    }
 
     drawSpokes = (cx, cy) => {
         this.ctx.strokeStyle = '#76DBFF';
@@ -340,7 +402,7 @@ class PolarAreaChart extends EventBus {
     };
 
     forEachSpoke = (cx, cy, fn) => {
-        for (let i = 0; i < this.itemCount; i++) {
+        for (let i = 0; i <= this.itemCount; i++) {
             const { angle, x, y } = this.calculateSpoke(cx, cy, i, this.chartRadius);
             fn(angle, i, x, y, cx, cy);
         }
